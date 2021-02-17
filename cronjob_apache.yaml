@@ -11,7 +11,7 @@ metadata:
   namespace: apache
   annotations:
 spec:
-  schedule: "* * */1 * *"
+  schedule: "@hourly"
   jobTemplate:
     spec:
       template:
@@ -23,7 +23,7 @@ spec:
             args:
             - /bin/sh
             - -c
-            - date; echo I am an example cronjob; sleep 30
+            - date; echo I am an example cronjob; sleep 1
             resources:
               requests:
                 cpu: 0.1

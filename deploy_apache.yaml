@@ -54,10 +54,7 @@ metadata:
     jenkins-job-id: "jenkins-1234"
     deploy-time: "Nov-14-2018, 10:04am UTC"
 spec:
-  # In production you would likely not use 1 replica, this is for demo purposes
-    # because we're doing declarative management we won't specify a replica count
-    # because this setting would overwrite what's running when a kubectl apply was done
-    # which would trigger a scale down. It's a serious mistake. 
+  # In production you would likely not specify a replica, because a rolling update would scale up/down to match it
   # replicas: 1
   # To avoid one ReplicaSet overwriting the past copies of others
     # see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#revision-history-limit··
@@ -84,10 +81,8 @@ spec:
         # Note, these are common labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
       annotations:
     spec:
-      # This will tell the scheduler to prefer (not require) one pod per node until
-      #  that's no longer possible, only then a node with an existing pod will receive a second instance.
-      # Note antiaffinity doesn't scale very well and can only be used in clusters up to a
-      #  few hundred nodes in Kubernetes 1.11 
+      dnsPolicy: Default # TODO add link
+      # This will tell the scheduler to prefer (not require) one pod per node unti that's no longer possible, only then a node with an existing pod will receive a second instance. Note antiaffinity doesn't scale very well and can only be used in clusters up to a few hundred nodes in Kubernetes 1.11 
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -102,17 +97,33 @@ spec:
                 topologyKey: kubernetes.io/hostname
       # If a node is tainted with example-taint:true then don't deploy to it 
       tolerations:
-      - key: "example-taint"
+      - key: "no-apache"
         operator: "Equal"
         value: "true"
         effect: "NoSchedule"
+#      initContainers: # https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+#      - name: apache-init
+##        image: busybox:1.28
+##        command: ['sh', '-c', "sleep 2; done"]
+#        image: httpd:2.4.46
+#        command:
+#        - "sh"
+#        - "echo I'm an init container"
+#        - "sleep 0"
+#        - "done"
+#        # For some reason tis won't work above for the command ['sh', '-c', 'echo I'm an init container && sleep 0']
+#        resources:
+#          requests:
+#            cpu: 0.1
+#            ephemeral-storage: 0.5Gi
+#            memory: 20M
       containers:
       - name: apache
         # Consider pulling an image by digest instead of tag, it's immutable
         image: httpd:2.4.46  # The version of apache I copied the conf file into the configmap
         imagePullPolicy: IfNotPresent
-#        command: ["/bin/sleep"] # useful for troubleshooting to override entrypoint then exec in, but first disable liveness probe.
-#        args: ["3600"] # goes with above line to make 'sleep 3600'
+#        command: ['/bin/sleep'] # useful for troubleshooting to override entrypoint then exec in, but first disable liveness probe.
+#        args: ["3600"] # appends to command. See the initContianer section for a smoother way.
         ports:
         - containerPort: 80
         volumeMounts:
@@ -134,9 +145,8 @@ spec:
             configMapKeyRef:
               name: apache-configmap
               key: envvar_from_configmap
-# envFrom: # TODO: what does this way mean?
-# - configMapRef:
-#     name: apache-configmap
+        # envFrom: can be used to define all of a ConfigMap(s) and/or secret(s) data as container environment variables.
+          # If you use envFrom to define environment variables from ConfigMaps, keys that are considered invalid will be skipped. The pod will be allowed to start, but the invalid names will be recorded in the event log
         resources:
           requests:
             cpu: 0.1
@@ -207,4 +217,4 @@ spec:
       terminationGracePeriodSeconds: 5
       priorityClassName: low-priority-nonpreempting
       progressDeadlineSeconds: # Optional, the number of seconds you want to wait for your Deployment to progress before the system reports back that the Deployment has failed progressing
-      minReadySeconds: # Not sure why to use this when probes are in use
+      minReadySeconds: # Default 0, not sure why to use this when probes are in use
