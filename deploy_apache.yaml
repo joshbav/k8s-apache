@@ -63,6 +63,8 @@ spec:
     # see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#revision-history-limit··
     # and the old default of 2 was too low, new default is 10.
   revisionHistoryLimit: 20
+  paused: false # Deployments can be rolled out in a paused state
+  progressDeadlineSeconds: # Optional, the number of seconds you want to wait for your Deployment to progress before the system reports back that the Deployment has failed progressing
   # Allow this Deployment/ReplicaSet/Pod(s) to be found via an app=apache
   selector:
     matchLabels:
@@ -204,3 +206,5 @@ spec:
       # This grace period timer begins before the preStop hook is called, not when sigterm is sent
       terminationGracePeriodSeconds: 5
       priorityClassName: low-priority-nonpreempting
+      progressDeadlineSeconds: # Optional, the number of seconds you want to wait for your Deployment to progress before the system reports back that the Deployment has failed progressing
+      minReadySeconds: # Not sure why to use this when probes are in use
