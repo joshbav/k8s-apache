@@ -6,7 +6,7 @@ apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: low-priority-nonpreempting
-  namespace: apache
+  # This object doesn't reside in a namespace # namespace: apache
 value: 1000000
 preemptionPolicy: Never
 globalDefault: false
