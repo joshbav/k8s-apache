@@ -1,42 +1,32 @@
-#### THIS IS A MESSY WORK IN PROGRESS, I INTEND TO CLEAN IT UP
+# My main to do list, and the deployment yaml
 
+#### THIS IS A MESSY WORK IN PROGRESS
 
-# TODO: 
+# TODO:
 
-# traefik is old, now uses CRDs, switch to k8s nginx ingres? (not f5's) https://kubernetes.github.io/ingress-nginx/deploy/
+# this traefik is old, now uses CRDs, switch to k8s nginx ingres? (not f5's) https://kubernetes.github.io/ingress-nginx/deploy/
 # directions for kind: https://kind.sigs.k8s.io/docs/user/ingress/#ingress-nginx
 
 #add delay to preStop, per: https://blog.gruntwork.io/delaying-shutdown-to-wait-for-pod-deletion-propagation-445f779a8304
 
 
 # QoS
-# init container
 # configmap more data like file (already done, but not tested), ref: https://github.com/kubernetes/kubernetes/issues/22368
 # mount secret as file, document how I made it
 # show example use, but mention that they aren't as useful as people assume, 
 # add downward api mount
-# Priority Class https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#example-priorityclass
-# resource quota, 
-# pull policy, show what default is
 # PV and PVC based on hostPath and emptyDir (uses /tmp, never use in prod)
 # dnsConfig:  per https://pracucci.com/kubernetes-dns-resolution-ndots-options-and-why-it-may-affect-application-performances.html
 # https://kubernetes.io/docs/concepts/workloads/pods/podpreset/
 # secret from file, mounted as file
-# initcontainer
-# scheduling priority
-# add comments for what is default, set all defaults by looking at the API
-# Binarydata to configmap, 
 # activeDeadlineSeconds
-# namespce object with labels, since network policies can use them.
-#  see https://www.youtube.com/watch?v=3gGpMmYeEO8  at 13:00
 # httpHeaders to liveness and ready probe, also a command example
 # bandwidth limit in 1.12
-# e/w load balancer: algorithm, ipvs type, etc
+# service types such as ipvs but commented out, with links
 # yaml can be very unforgiving, here's a good online validator to use:  
 #   http://yaml-online-parser.appspot.com/
 #   but it does not like multiple yaml docs, so cut each doc at the --- line before submitting
 #   leave the default output of json, since kubernetes converts yaml to json internally
-# also consider kubectrl -f <file or url> --dry-run
 # I suggest using Microsoft's VS Code with the Redhat Yaml plugin for K8s
 #   https://github.com/redhat-developer/vscode-yaml
 
