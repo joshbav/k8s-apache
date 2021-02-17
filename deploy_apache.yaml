@@ -9,7 +9,6 @@
 #add delay to preStop, per: https://blog.gruntwork.io/delaying-shutdown-to-wait-for-pod-deletion-propagation-445f779a8304
 
 
-# pod prorityclass
 # QoS
 # init container
 # configmap more data like file (already done, but not tested), ref: https://github.com/kubernetes/kubernetes/issues/22368
@@ -204,3 +203,4 @@ spec:
       #  note kubectl can override this with delete deploy X --force --grace-period=X
       # This grace period timer begins before the preStop hook is called, not when sigterm is sent
       terminationGracePeriodSeconds: 5
+      priorityClassName: low-priority-nonpreempting

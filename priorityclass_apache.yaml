@@ -1,0 +1,13 @@
+# Created 2-21 on K8s 1.20
+
+# Docs (1.20): https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority-nonpreempting
+  namespace: apache
+value: 1000000
+preemptionPolicy: Never
+globalDefault: false
+description: "This priority class will not cause other pods to be preempted."

@@ -1,0 +1,15 @@
+# Created 2-21 on K8s 1.20
+
+# I'm not using this yet
+
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: apache-ingressclass
+  namespace: apache
+spec:
+  controller: example.com/ingress-controller
+  parameters:
+    apiGroup: k8s.example.com
+    kind: IngressParameters
+    name: external-apache-lb
