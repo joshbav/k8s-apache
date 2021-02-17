@@ -9,7 +9,7 @@ apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: apache-psp-privileged
-  namespace: apache
+  # This object type doesn't reside in a namespace # namespace: apache
   annotations:
 spec:
   privileged: true
