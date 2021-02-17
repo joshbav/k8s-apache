@@ -1,0 +1,6 @@
+# Created 2-2021 on k8s 1.20
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apache
+  annotations:

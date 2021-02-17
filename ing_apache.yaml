@@ -1,0 +1,24 @@
+# Created 2-21 on K8s 1.20
+
+# Note ingress structure has changed with recent K8s versions
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: apache-ingress
+  namespace: apache
+  annotations:
+    kubernetes.io/ingress.class: traefik # delete this?
+spec:
+  rules:
+  - host: "www.apache.test"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: apache-service
+            port:
+              name: http
+

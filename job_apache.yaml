@@ -1,0 +1,32 @@
+# Created 2-21 on K8s 1.20
+
+# The simplest job. 
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: apache-job
+  namespace: apache
+  annotations:
+spec:
+  template:
+    spec:
+      containers:
+      - name: apache-job
+        image: httpd:2.4.46
+        imagePullPolicy: IfNotPresent
+        args:
+        - /bin/sh
+        - -c
+        - date; echo I am an example job; sleep 30
+        resources:
+          requests:
+            cpu: 0.1
+            ephemeral-storage: 0.5Gi
+            memory: 0.1G
+          limits:
+            cpu: 0.2
+            memory: 0.2G
+            ephemeral-storage: 2Gi
+      restartPolicy: OnFailure
+

@@ -1,0 +1,206 @@
+#### THIS IS A MESSY WORK IN PROGRESS, I INTEND TO CLEAN IT UP
+
+
+# TODO: 
+
+# traefik is old, now uses CRDs, switch to k8s nginx ingres? (not f5's) https://kubernetes.github.io/ingress-nginx/deploy/
+# directions for kind: https://kind.sigs.k8s.io/docs/user/ingress/#ingress-nginx
+
+#add delay to preStop, per: https://blog.gruntwork.io/delaying-shutdown-to-wait-for-pod-deletion-propagation-445f779a8304
+
+
+# pod prorityclass
+# QoS
+# init container
+# configmap more data like file (already done, but not tested), ref: https://github.com/kubernetes/kubernetes/issues/22368
+# mount secret as file, document how I made it
+# show example use, but mention that they aren't as useful as people assume, 
+# add downward api mount
+# Priority Class https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#example-priorityclass
+# resource quota, 
+# pull policy, show what default is
+# PV and PVC based on hostPath and emptyDir (uses /tmp, never use in prod)
+# dnsConfig:  per https://pracucci.com/kubernetes-dns-resolution-ndots-options-and-why-it-may-affect-application-performances.html
+# https://kubernetes.io/docs/concepts/workloads/pods/podpreset/
+# secret from file, mounted as file
+# initcontainer
+# scheduling priority
+# add comments for what is default, set all defaults by looking at the API
+# Binarydata to configmap, 
+# activeDeadlineSeconds
+# namespce object with labels, since network policies can use them.
+#  see https://www.youtube.com/watch?v=3gGpMmYeEO8  at 13:00
+# httpHeaders to liveness and ready probe, also a command example
+# bandwidth limit in 1.12
+# e/w load balancer: algorithm, ipvs type, etc
+# yaml can be very unforgiving, here's a good online validator to use:  
+#   http://yaml-online-parser.appspot.com/
+#   but it does not like multiple yaml docs, so cut each doc at the --- line before submitting
+#   leave the default output of json, since kubernetes converts yaml to json internally
+# also consider kubectrl -f <file or url> --dry-run
+# I suggest using Microsoft's VS Code with the Redhat Yaml plugin for K8s
+#   https://github.com/redhat-developer/vscode-yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apache-deployment
+  namespace: apache
+  labels:
+    app: apache
+    prod: "false" # This yaml will be invalid without the quotes, which is odd considering the prior line worked.
+    # Note, these are common labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
+  annotations:
+    build-time: "Nov-14-2018, 9:30am UTC"
+    jenkins-job-id: "jenkins-1234"
+    deploy-time: "Nov-14-2018, 10:04am UTC"
+spec:
+  # In production you would likely not use 1 replica, this is for demo purposes
+    # because we're doing declarative management we won't specify a replica count
+    # because this setting would overwrite what's running when a kubectl apply was done
+    # which would trigger a scale down. It's a serious mistake. 
+  # replicas: 1
+  # To avoid one ReplicaSet overwriting the past copies of others
+    # see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#revision-history-limit··
+    # and the old default of 2 was too low, new default is 10.
+  revisionHistoryLimit: 20
+  # Allow this Deployment/ReplicaSet/Pod(s) to be found via an app=apache
+  selector:
+    matchLabels:
+      app: apache
+  strategy:
+    # The type of update done on this deployment will be a rolling update
+    type: RollingUpdate
+    rollingUpdate:
+      # 3 more pods than the current replica value is allowed during an update
+      maxSurge: 3
+      # During an update only 1 pod can be unavailable at a time
+      maxUnavailable: 1
+  template: # pod template
+    metadata:
+      labels:
+        app: apache
+        # Note, these are common labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
+      annotations:
+    spec:
+      # This will tell the scheduler to prefer (not require) one pod per node until
+      #  that's no longer possible, only then a node with an existing pod will receive a second instance.
+      # Note antiaffinity doesn't scale very well and can only be used in clusters up to a
+      #  few hundred nodes in Kubernetes 1.11 
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                    - apache
+                topologyKey: kubernetes.io/hostname
+      # If a node is tainted with example-taint:true then don't deploy to it 
+      tolerations:
+      - key: "example-taint"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+      - name: apache
+        # Consider pulling an image by digest instead of tag, it's immutable
+        image: httpd:2.4.46  # The version of apache I copied the conf file into the configmap
+        imagePullPolicy: IfNotPresent
+#        command: ["/bin/sleep"] # useful for troubleshooting to override entrypoint then exec in, but first disable liveness probe.
+#        args: ["3600"] # goes with above line to make 'sleep 3600'
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: apache-conf
+          mountPath: "/usr/local/apache2/conf/test.conf"
+          subPath: "httpd.conf" # without this the whole conf directory is replaced, but we just want to replace a file.
+            # http://blog.andyserver.com/2019/02/using-subpath-property-of-openshift-volume-mounts/
+          readOnly: false
+        env:
+        - name: k8s_deployment_variable
+          value: "this-envvar-was-injected-by-the-k8s-deployment"
+        - name: k8s_secret_password
+          valueFrom:
+            secretKeyRef:
+              name: apache-secret
+              key: password-from-secret
+        - name: from_k8s_config_map
+          valueFrom:
+            configMapKeyRef:
+              name: apache-configmap
+              key: envvar_from_configmap
+# envFrom: # TODO: what does this way mean?
+# - configMapRef:
+#     name: apache-configmap
+        resources:
+          requests:
+            cpu: 0.1
+            ephemeral-storage: 0.5Gi
+            memory: 0.1G
+          limits:
+            cpu: 0.2
+            memory: 0.2G
+            ephemeral-storage: 2Gi
+        livenessProbe:
+          # A liveness probe is ran during the container's lifecycle as a health check
+          httpGet:
+            path: /
+            port: 80
+            httpHeaders:
+            - name: X-Custom-Header
+              value: k8s-liveness-probe
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 10
+        readinessProbe:
+          # Is different than a liveness probe, one difference is that a failure triggers
+          # traffic to not be routed to the pod, but it takes a failed liveness probe before
+          # the pod is killed/replaced. Also, traffic is only sent to a pod after a readiness 
+          # probe succeeds, unlike a liveness probe, so if a pod takes a while to initialize
+          # we don't want any traffic going to it until it's ready. 
+          # Readiness probes are quite useful for large java apps that take time to initialize.  
+          # Use a readiness probe in production.
+          httpGet:
+            path: /
+            port: 80
+            httpHeaders:
+            - name: X-Custom-Header
+              value: k8s-readiness-probe
+          initialDelaySeconds: 5
+          # Since this is a specific autoscale lab use case where the web server is slow
+          #  so as to make a lot of CPU use, we want a long timeout
+          timeoutSeconds: 10
+          failureThreshold: 3
+        lifecycle:
+          postStart:
+            exec:
+              # Can be used to do commands not in the container's entrypoint
+              # Can be useful for diagnostics
+              # Note there is no guarantee it's called before the container's entrypoint!
+              command: ["/bin/sh", "-c", "echo Hello from the postStart handler"]
+          preStop:
+            exec:
+              # Can be used to trigger a graceful shutdown, such as stopping services
+              # Is only used when a pod is terminated. When a pod completes it's not called.
+              # This hook is called immediately before a container is terminated. 
+              # No parameters are passed to the handler. This event handler is blocking, and must
+              #  complete before the call to delete the container is sent to the Docker daemon.
+              # The SIGTERM notification sent by Docker is also still sent.
+              # Note NGINX is an example where this is needed, since it does not shut down
+              #  gracefully with a sigterm. Instead it needs '/usr/sbin/nginx -s quit' ran
+              command: ["/bin/sh", "-c", "echo Hello from the preStop handler"]
+      volumes:
+      - name: apache-conf
+        configMap:
+          name: apache-configmap
+          items:
+          - key: httpd.conf    # the apache config file is stored in the configmap
+            path: httpd.conf
+      # How long after sigterm is sent will a sigkill be sent, 30 is the K8s default
+      #  note kubectl can override this with delete deploy X --force --grace-period=X
+      # This grace period timer begins before the preStop hook is called, not when sigterm is sent
+      terminationGracePeriodSeconds: 5

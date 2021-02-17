@@ -1,0 +1,18 @@
+# Created 2-21 on K8s 1.20
+
+# A basic example implementation. For more spec fields see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#limitrangeitem-v1-core
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: apache-limit-range
+  namespace: apache
+  annotations:
+spec:
+  limits:
+  - default: # Default resource requirement limit value by resource name if resource limit is omitted.
+      memory: 5120Mi
+    defaultRequest: #Default resource requirement request value by resource name if resource request is omitted.
+      memory: 128Mi
+    type: Container
+

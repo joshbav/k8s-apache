@@ -1,0 +1,42 @@
+# Created 2-21 on K8s 1.20
+
+# Quotas are applied to namespaces
+
+# A basic example.
+# For reference see: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#resourcequotaspec-v1-core
+# For docs see: https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/
+# For training see: https://www.golinuxcloud.com/kubernetes-resource-quota/
+
+# two of the restrictions that a resource quota imposes on a namespace:
+
+# 1. Every Container that runs in the namespace must have its own CPU limit.
+# 2. The total amount of CPU used by all Containers in the namespace must not exceed a specified limit. If a Container does not specify its own CPU limit, it is given the default limit, and then it can be allowed to run in a namespace that is restricted by a quota.
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: apache-mem-cpu-quota
+  namespace: apache
+  annotations:
+spec:
+  hard: # Hard limits for each resource type
+    requests.cpu: "32"
+    requests.memory: 64Gi
+    limits.cpu: "64"
+    limits.memory: 128Gi
+
+    # pods: 2  # This can limit number of pods in a namespace
+
+    # requests.storage: # The total amount of requested storage across all persistent volume claims
+
+    # persistentvolumeclaims: # The maximum number of persistent volume claims allowed in the namespace
+
+    # ??.storageclass.storage.k8s.io/requests.storage: # The total amount of requested storage across all persistent volume claims associated with the storage class name
+
+    # ??.storageclass.storage.k8s.io/persistentvolumeclaims: # The maximum number of persistent volume claims allowed in the namespace that are associated with the storage class name
+
+    # requests.ephemeral-storage: # The total amount of requested ephemeral storage across all pods in the namespace claims
+
+    # limits.ephemeral-storage: # The total amount of limits for ephemeral storage across all pods in the namespace claims
+
+    # NOTE Object count quotas for things like configmaps, etc, are also supported but no example is here. 

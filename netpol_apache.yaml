@@ -1,0 +1,57 @@
+# Creted 2-21 on K8s 1.20
+
+# todo: add ports and ipBlock selector.
+# copy from: https://kubernetes.io/docs/concepts/services-networking/network-policies/#the-networkpolicy-resource
+
+# This video is a good source of info: https://www.youtube.com/watch?v=3gGpMmYeEO8
+# This repo has good examples: https://github.com/ahmetb/kubernetes-network-policy-recipes
+# This blog post from the same author summarizes things well: https://ahmet.im/blog/kubernetes-network-policy/
+# 
+# With network policies you can only write rules that allow traffic, you can't
+#  write rules that directly block traffic like you can with a firewall.
+#  see video at 5:07
+# K8s is default allow, thus traffic is allowed unless theres a policy that selects
+#  the pod and there are now rules that allow the traffic.
+# Policy rules are additive, they're OR'ed with each other (not AND).
+#  this is important since AND would have allowed more granularity, like a firewall.
+# Policies are scoped to the namespace they're deployed in.
+#  spec.podSelector does not select pods from other namespaces.
+#  to select from pods in other namespaces, use namespaceSelector instead, it uses labels too.
+#  but labels on namespaces is rare. 
+#  As of K8s 1.10 it was not possible to limit some pods from other name spaces, it's either
+#    all or nothing.
+#
+# Egress policies need to allows DNS, see 16:32 of video
+# 
+# Once A connects to B, B can send traffic to A, but B can't necessarily open a connection
+#  to A before has connected to B unless the policy allows it. 
+# Policies are connection filters, not packet filters. They do not termiante extablished
+#  existing connections. 
+#
+# Best practices: 
+# 1. use a default-deny-all rule to block all, then make allow policies. 
+# 2. Be explicit about empty vs null fields. Rules are OR'ed (not AND'ed) 
+#   so additity can cause problems. 
+# 3. Use kubectl describe to verify rule syntax.
+
+
+# LEFT OFF ON VIDEO AT 22:50
+
+
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apache-netpol
+  namespace: apache
+  annotations:
+spec:
+  # Note a {} equals everything, it's a *
+  #  this is different than an empty array of [] "such as egress: []" which means nothing
+  podSelector: {} # So this applies to all pods
+  ingress:
+  - {} # So everything is allowed to ingress
+  # This policy applies to ingress and egress
+  policyTypes:
+  - Ingress
+  - Egress
