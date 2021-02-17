@@ -13,6 +13,7 @@ metadata:
   namespace: apache
   annotations:
 spec:
+  type: ClusterIP # Note the other types such as IPVS, headless, external, etc
   ports:
   - name: http
     targetPort: 80
