@@ -4,6 +4,9 @@
 
 # Docs: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/
 
+# Note, because of K8s cronjob weirdness jobs should be idempotent.
+# K8s 1.20 has a new alpha cronjob controller
+
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
@@ -11,9 +14,14 @@ metadata:
   namespace: apache
   annotations:
 spec:
-  schedule: "@hourly"
+  schedule: "@hourly" #times are based on the timezone of the kube-controller-manager.
+  suspend: false # Optional. If true, all subsequent executions are suspended. This setting does not apply to already started executions. Defaults to false. Executions that are suspended during their scheduled time count as missed jobs.
+  startingDeadlineSeconds: 100 # Ooptional. It stands for the deadline in seconds for starting the job if it misses its scheduled time for any reason.
   jobTemplate:
     spec:
+      concurrencyPolicy: # Default is Allow. Field is also optional, specifies how to treat concurrent executions of a job that is created by this cron job. The spec may specify only one of the following concurrency policies:
+      successfulJobsHistoryLimit: # Optional
+      failedJobsHistoryLimit: # Optional
       template:
         spec:
           containers:

@@ -82,6 +82,12 @@ spec:
       annotations:
     spec:
       dnsPolicy: Default # TODO add link
+      # How long after sigterm is sent will a sigkill be sent, 30 is the K8s default. Note kubectl can override this with delete deploy  --force --grace-period=X. This grace period timer begins before the preStop hook is called, not when sigterm is sent
+      terminationGracePeriodSeconds: 5
+      priorityClassName: low-priority-nonpreempting # Pod priority class
+      progressDeadlineSeconds: # Optional, the number of seconds you want to wait for your Deployment to progress before the system reports back that the Deployment has failed progressing
+      minReadySeconds: # Default 0, not sure why to use this when probes are in use
+
       # This will tell the scheduler to prefer (not require) one pod per node unti that's no longer possible, only then a node with an existing pod will receive a second instance. Note antiaffinity doesn't scale very well and can only be used in clusters up to a few hundred nodes in Kubernetes 1.11 
       affinity:
         podAntiAffinity:
@@ -101,22 +107,19 @@ spec:
         operator: "Equal"
         value: "true"
         effect: "NoSchedule"
-#      initContainers: # https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
-#      - name: apache-init
-##        image: busybox:1.28
-##        command: ['sh', '-c', "sleep 2; done"]
-#        image: httpd:2.4.46
-#        command:
-#        - "sh"
-#        - "echo I'm an init container"
-#        - "sleep 0"
-#        - "done"
-#        # For some reason tis won't work above for the command ['sh', '-c', 'echo I'm an init container && sleep 0']
-#        resources:
-#          requests:
-#            cpu: 0.1
-#            ephemeral-storage: 0.5Gi
-#            memory: 20M
+      initContainers: # https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+      - name: apache-init
+        image: httpd:2.4.46
+        command: ['sh', '-c', 'echo This is an init container', 'sleep 2', 'done']
+        resources:
+          requests:
+            cpu: 0.1
+            ephemeral-storage: 0.5Gi
+            memory: 0.1G
+          limits:
+            cpu: 0.2
+            memory: 0.2G
+            ephemeral-storage: 2Gi
       containers:
       - name: apache
         # Consider pulling an image by digest instead of tag, it's immutable
@@ -211,10 +214,3 @@ spec:
           items:
           - key: httpd.conf    # the apache config file is stored in the configmap
             path: httpd.conf
-      # How long after sigterm is sent will a sigkill be sent, 30 is the K8s default
-      #  note kubectl can override this with delete deploy X --force --grace-period=X
-      # This grace period timer begins before the preStop hook is called, not when sigterm is sent
-      terminationGracePeriodSeconds: 5
-      priorityClassName: low-priority-nonpreempting
-      progressDeadlineSeconds: # Optional, the number of seconds you want to wait for your Deployment to progress before the system reports back that the Deployment has failed progressing
-      minReadySeconds: # Default 0, not sure why to use this when probes are in use
