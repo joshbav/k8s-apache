@@ -1,4 +1,6 @@
 #!/bin/bash
+echo Creating 1.yaml
+./1.sh
 # This is just to update git
 git config user.name “joshbav” 
 git add -A

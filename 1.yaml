@@ -1,0 +1,1054 @@
+# Created 2-2021 on k8s 1.20
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apache
+  annotations:
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+# I'm not using this yet
+
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: apache-ingressclass
+  namespace: apache
+spec:
+  controller: example.com/ingress-controller
+  parameters:
+    apiGroup: k8s.example.com
+    kind: IngressParameters
+    name: external-apache-lb
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: apache-secret
+  namespace: apache
+  annotations:
+data:
+  # Note secrets must always be in base64, I created this via: echo my-example-user-name |base64
+  # To test it, take the value and decode it with echo bXktZXhhbXBsZS1wYXNzd29yZAo= |base64 --decode
+  password-from-secret: bXktZXhhbXBsZS1wYXNzd29yZAo=
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+# Docs (1.20): https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority-nonpreempting
+  # This object doesn't reside in a namespace # namespace: apache
+value: 1000000
+preemptionPolicy: Never
+globalDefault: false
+description: "This priority class will not cause other pods to be preempted."
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+# Note ingress structure has changed with recent K8s versions
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: apache-ingress
+  namespace: apache
+  annotations:
+    kubernetes.io/ingress.class: traefik # delete this?
+spec:
+  rules:
+  - host: "www.apache.test"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: apache-service
+            port:
+              name: http
+
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+# A basic example implementation. For more spec fields see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#limitrangeitem-v1-core
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: apache-limit-range
+  namespace: apache
+  annotations:
+spec:
+  limits:
+  - default: # Default resource requirement limit value by resource name if resource limit is omitted.
+      memory: 5120Mi
+    defaultRequest: #Default resource requirement request value by resource name if resource request is omitted.
+      memory: 128Mi
+    type: Container
+
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+# The simplest job. 
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: apache-job
+  namespace: apache
+  annotations:
+spec:
+  template:
+    spec:
+      containers:
+      - name: apache-job
+        image: httpd:2.4.46
+        imagePullPolicy: IfNotPresent
+        args:
+        - /bin/sh
+        - -c
+        - date; echo I am an example job; sleep 30
+        resources:
+          requests:
+            cpu: 0.1
+            ephemeral-storage: 0.5Gi
+            memory: 0.1G
+          limits:
+            cpu: 0.2
+            memory: 0.2G
+            ephemeral-storage: 2Gi
+      restartPolicy: OnFailure
+
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+apiVersion: v1
+kind: Service
+# A service is an abstraction which defines a logical set of Pods and a policy by which to access them.
+# For Kubernetes-native applications a simple Endpoints API is updated whenever the set of Pods
+#   in a Service changes. For non-native applications, Kubernetes offers a virtual-IP-based bridge
+#   to Services which redirects to the backend Pods. Is a layer 4 construct.·
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: apache-service
+  namespace: apache
+  annotations:
+spec:
+  type: ClusterIP # Note the other types such as IPVS, headless, external, etc
+  ports:
+  - name: http
+    targetPort: 80
+    port: 80
+  selector:
+    app: apache
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Create 2-21 on K8s 1.20
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+# Cluster managers, hosting providers, etc should use tools which respect Pod Disruption Budgets·
+#   by calling the Eviction API instead of directly deleting pods, for voluntary actions.
+# Involuntary actions also count against the budget.·
+# The kubectl drain command utilizes pod disruption budgets
+# Pods which are deleted or unavailable due to a rolling upgrade to an application do count·
+#   against the disruption budget, but controllers (like deployment and stateful-set) are not·
+#   limited by PDBs when doing rolling upgrade.
+metadata:
+  name: apache-pdb
+  namespace: apache
+  annotations:
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: apache
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+# Is a wide open Pod Security Policy
+
+# Documentation: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
+# Reference (v1.20): https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#podsecuritypolicy-v1beta1-policy
+
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: apache-psp-privileged
+  # This object type doesn't reside in a namespace # namespace: apache
+  annotations:
+spec:
+  privileged: true
+  allowPrivilegeEscalation: true
+  allowedCapabilities:
+  - '*'
+  volumes:
+  - '*'
+  hostNetwork: true
+  hostPorts:
+  - min: 0
+    max: 65535
+  hostIPC: true
+  hostPID: true
+  runAsUser:
+    rule: 'RunAsAny'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+# copied from https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/
+
+# As of K8s 1.10 external metrics can be used for an HPA, no example of that is included here
+
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: apache-hpa
+  namespace: apache
+  annotations:
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: apache-deployment
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Pods
+    pods:
+      metric:
+        name: packets-per-second
+      target:
+        type: AverageValue
+        averageValue: 1k
+  - type: Object
+    object:
+      metric:
+        name: requests-per-second
+      describedObject:
+        apiVersion: networking.k8s.io/v1beta1
+        kind: Ingress
+        name: main-route
+      target:
+        type: Value
+        value: 10k
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+# A cronjob that runs once a day
+
+# Docs: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/
+
+# Note, because of K8s cronjob weirdness jobs should be idempotent.
+# K8s 1.20 has a new alpha cronjob controller
+
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: apache-cronjob
+  namespace: apache
+  annotations:
+spec:
+  schedule: "@hourly" #times are based on the timezone of the kube-controller-manager.
+  suspend: false # Optional. If true, all subsequent executions are suspended. This setting does not apply to already started executions. Defaults to false. Executions that are suspended during their scheduled time count as missed jobs.
+  startingDeadlineSeconds: 100 # Ooptional. It stands for the deadline in seconds for starting the job if it misses its scheduled time for any reason.
+  jobTemplate:
+    spec:
+      concurrencyPolicy: # Default is Allow. Field is also optional, specifies how to treat concurrent executions of a job that is created by this cron job. The spec may specify only one of the following concurrency policies:
+      successfulJobsHistoryLimit: # Optional
+      failedJobsHistoryLimit: # Optional
+      template:
+        spec:
+          containers:
+          - name: apache-cronjob
+            image: httpd:2.4.46
+            imagePullPolicy: IfNotPresent
+            args:
+            - /bin/sh
+            - -c
+            - date; echo I am an example cronjob; sleep 1
+            resources:
+              requests:
+                cpu: 0.1
+                ephemeral-storage: 0.5Gi
+                memory: 0.1G
+              limits:
+                cpu: 0.2
+                memory: 0.2G
+                ephemeral-storage: 2Gi
+          restartPolicy: OnFailure
+
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: traefik-ingress-controller
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: traefik-ingress-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traefik-ingress-controller
+subjects:
+- kind: ServiceAccount
+  name: traefik-ingress-controller
+  namespace: kube-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: traefik-ingress-controller
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: traefik-ingress-controller
+  namespace: kube-system
+  labels:
+    k8s-app: traefik-ingress-lb
+spec:
+  selector:
+    matchLabels:
+      k8s-app: traefik-ingress-lb
+      name: traefik-ingress-lb
+  template:
+    metadata:
+      labels:
+        k8s-app: traefik-ingress-lb
+        name: traefik-ingress-lb
+    spec:
+      serviceAccountName: traefik-ingress-controller
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: traefik:v1.7.2
+        name: traefik-ingress-lb
+        ports:
+        - name: http
+          containerPort: 80
+          hostPort: 80
+        - name: admin
+          containerPort: 8080
+          hostPort: 8080
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+        args:
+        - --api
+        - --kubernetes
+        - --logLevel=INFO
+      nodeSelector:
+        kubernetes.dcos.io/node-type: public
+      tolerations:
+      - key: "node-type.kubernetes.dcos.io/public"
+        operator: "Exists"
+        effect: "NoSchedule"
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+# Quotas are applied to namespaces
+
+# A basic example.
+# For reference see: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#resourcequotaspec-v1-core
+# For docs see: https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/
+# For training see: https://www.golinuxcloud.com/kubernetes-resource-quota/
+
+# two of the restrictions that a resource quota imposes on a namespace:
+
+# 1. Every Container that runs in the namespace must have its own CPU limit.
+# 2. The total amount of CPU used by all Containers in the namespace must not exceed a specified limit. If a Container does not specify its own CPU limit, it is given the default limit, and then it can be allowed to run in a namespace that is restricted by a quota.
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: apache-mem-cpu-quota
+  namespace: apache
+  annotations:
+spec:
+  hard: # Hard limits for each resource type
+    requests.cpu: "32"
+    requests.memory: 64Gi
+    limits.cpu: "64"
+    limits.memory: 128Gi
+
+    # pods: 2  # This can limit number of pods in a namespace
+
+    # requests.storage: # The total amount of requested storage across all persistent volume claims
+
+    # persistentvolumeclaims: # The maximum number of persistent volume claims allowed in the namespace
+
+    # ??.storageclass.storage.k8s.io/requests.storage: # The total amount of requested storage across all persistent volume claims associated with the storage class name
+
+    # ??.storageclass.storage.k8s.io/persistentvolumeclaims: # The maximum number of persistent volume claims allowed in the namespace that are associated with the storage class name
+
+    # requests.ephemeral-storage: # The total amount of requested ephemeral storage across all pods in the namespace claims
+
+    # limits.ephemeral-storage: # The total amount of limits for ephemeral storage across all pods in the namespace claims
+
+    # NOTE Object count quotas for things like configmaps, etc, are also supported but no example is here. 
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Creted 2-21 on K8s 1.20
+
+# todo: add ports and ipBlock selector.
+# copy from: https://kubernetes.io/docs/concepts/services-networking/network-policies/#the-networkpolicy-resource
+
+# This video is a good source of info: https://www.youtube.com/watch?v=3gGpMmYeEO8
+# This repo has good examples: https://github.com/ahmetb/kubernetes-network-policy-recipes
+# This blog post from the same author summarizes things well: https://ahmet.im/blog/kubernetes-network-policy/
+# 
+# With network policies you can only write rules that allow traffic, you can't
+#  write rules that directly block traffic like you can with a firewall.
+#  see video at 5:07
+# K8s is default allow, thus traffic is allowed unless theres a policy that selects
+#  the pod and there are now rules that allow the traffic.
+# Policy rules are additive, they're OR'ed with each other (not AND).
+#  this is important since AND would have allowed more granularity, like a firewall.
+# Policies are scoped to the namespace they're deployed in.
+#  spec.podSelector does not select pods from other namespaces.
+#  to select from pods in other namespaces, use namespaceSelector instead, it uses labels too.
+#  but labels on namespaces is rare. 
+#  As of K8s 1.10 it was not possible to limit some pods from other name spaces, it's either
+#    all or nothing.
+#
+# Egress policies need to allows DNS, see 16:32 of video
+# 
+# Once A connects to B, B can send traffic to A, but B can't necessarily open a connection
+#  to A before has connected to B unless the policy allows it. 
+# Policies are connection filters, not packet filters. They do not termiante extablished
+#  existing connections. 
+#
+# Best practices: 
+# 1. use a default-deny-all rule to block all, then make allow policies. 
+# 2. Be explicit about empty vs null fields. Rules are OR'ed (not AND'ed) 
+#   so additity can cause problems. 
+# 3. Use kubectl describe to verify rule syntax.
+
+
+# LEFT OFF ON VIDEO AT 22:50
+
+
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apache-netpol
+  namespace: apache
+  annotations:
+spec:
+  # Note a {} equals everything, it's a *
+  #  this is different than an empty array of [] "such as egress: []" which means nothing
+  podSelector: {} # So this applies to all pods
+  ingress:
+  - {} # So everything is allowed to ingress
+  # This policy applies to ingress and egress
+  policyTypes:
+  - Ingress
+  - Egress
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# My main to do list, and the deployment yaml
+
+#### THIS IS A MESSY WORK IN PROGRESS
+
+# TODO:
+
+# this traefik is old, now uses CRDs, switch to k8s nginx ingres? (not f5's) https://kubernetes.github.io/ingress-nginx/deploy/
+# directions for kind: https://kind.sigs.k8s.io/docs/user/ingress/#ingress-nginx
+
+#add delay to preStop, per: https://blog.gruntwork.io/delaying-shutdown-to-wait-for-pod-deletion-propagation-445f779a8304
+
+
+# QoS
+# configmap more data like file (already done, but not tested), ref: https://github.com/kubernetes/kubernetes/issues/22368
+# mount secret as file, document how I made it
+# show example use, but mention that they aren't as useful as people assume, 
+# add downward api mount
+# PV and PVC based on hostPath and emptyDir (uses /tmp, never use in prod)
+# dnsConfig:  per https://pracucci.com/kubernetes-dns-resolution-ndots-options-and-why-it-may-affect-application-performances.html
+# https://kubernetes.io/docs/concepts/workloads/pods/podpreset/
+# secret from file, mounted as file
+# activeDeadlineSeconds
+# httpHeaders to liveness and ready probe, also a command example
+# bandwidth limit in 1.12
+# service types such as ipvs but commented out, with links
+# yaml can be very unforgiving, here's a good online validator to use:  
+#   http://yaml-online-parser.appspot.com/
+#   but it does not like multiple yaml docs, so cut each doc at the --- line before submitting
+#   leave the default output of json, since kubernetes converts yaml to json internally
+# I suggest using Microsoft's VS Code with the Redhat Yaml plugin for K8s
+#   https://github.com/redhat-developer/vscode-yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apache-deployment
+  namespace: apache
+  labels:
+    app: apache
+    prod: "false" # This yaml will be invalid without the quotes, which is odd considering the prior line worked.
+    # Note, these are common labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
+  annotations:
+    build-time: "Nov-14-2018, 9:30am UTC"
+    jenkins-job-id: "jenkins-1234"
+    deploy-time: "Nov-14-2018, 10:04am UTC"
+spec:
+  # In production you would likely not specify a replica, because a rolling update would scale up/down to match it
+  # replicas: 1
+  # To avoid one ReplicaSet overwriting the past copies of others
+    # see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#revision-history-limit··
+    # and the old default of 2 was too low, new default is 10.
+  revisionHistoryLimit: 20
+  paused: false # Deployments can be rolled out in a paused state
+  progressDeadlineSeconds: # Optional, the number of seconds you want to wait for your Deployment to progress before the system reports back that the Deployment has failed progressing
+  # Allow this Deployment/ReplicaSet/Pod(s) to be found via an app=apache
+  selector:
+    matchLabels:
+      app: apache
+  strategy:
+    # The type of update done on this deployment will be a rolling update
+    type: RollingUpdate
+    rollingUpdate:
+      # 3 more pods than the current replica value is allowed during an update
+      maxSurge: 3
+      # During an update only 1 pod can be unavailable at a time
+      maxUnavailable: 1
+  template: # pod template
+    metadata:
+      labels:
+        app: apache
+        # Note, these are common labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
+      annotations:
+    spec:
+      dnsPolicy: Default # TODO add link
+      # How long after sigterm is sent will a sigkill be sent, 30 is the K8s default. Note kubectl can override this with delete deploy  --force --grace-period=X. This grace period timer begins before the preStop hook is called, not when sigterm is sent
+      terminationGracePeriodSeconds: 5
+      priorityClassName: low-priority-nonpreempting # Pod priority class
+      progressDeadlineSeconds: # Optional, the number of seconds you want to wait for your Deployment to progress before the system reports back that the Deployment has failed progressing
+      minReadySeconds: # Default 0, not sure why to use this when probes are in use
+
+      # This will tell the scheduler to prefer (not require) one pod per node unti that's no longer possible, only then a node with an existing pod will receive a second instance. Note antiaffinity doesn't scale very well and can only be used in clusters up to a few hundred nodes in Kubernetes 1.11 
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                    - apache
+                topologyKey: kubernetes.io/hostname
+      # If a node is tainted with example-taint:true then don't deploy to it 
+      tolerations:
+      - key: "no-apache"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      initContainers: # https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+      - name: apache-init
+        image: httpd:2.4.46
+        command: ['sh', '-c', 'echo This is an init container', 'sleep 2', 'done']
+        resources:
+          requests:
+            cpu: 0.1
+            ephemeral-storage: 0.5Gi
+            memory: 0.1G
+          limits:
+            cpu: 0.2
+            memory: 0.2G
+            ephemeral-storage: 2Gi
+      containers:
+      - name: apache
+        # Consider pulling an image by digest instead of tag, it's immutable
+        image: httpd:2.4.46  # The version of apache I copied the conf file into the configmap
+        imagePullPolicy: IfNotPresent
+#        command: ['/bin/sleep'] # useful for troubleshooting to override entrypoint then exec in, but first disable liveness probe.
+#        args: ["3600"] # appends to command. See the initContianer section for a smoother way.
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: apache-conf
+          mountPath: "/usr/local/apache2/conf/test.conf"
+          subPath: "httpd.conf" # without this the whole conf directory is replaced, but we just want to replace a file.
+            # http://blog.andyserver.com/2019/02/using-subpath-property-of-openshift-volume-mounts/
+          readOnly: false
+        env:
+        - name: k8s_deployment_variable
+          value: "this-envvar-was-injected-by-the-k8s-deployment"
+        - name: k8s_secret_password
+          valueFrom:
+            secretKeyRef:
+              name: apache-secret
+              key: password-from-secret
+        - name: from_k8s_config_map
+          valueFrom:
+            configMapKeyRef:
+              name: apache-configmap
+              key: envvar_from_configmap
+        # envFrom: can be used to define all of a ConfigMap(s) and/or secret(s) data as container environment variables.
+          # If you use envFrom to define environment variables from ConfigMaps, keys that are considered invalid will be skipped. The pod will be allowed to start, but the invalid names will be recorded in the event log
+        resources:
+          requests:
+            cpu: 0.1
+            ephemeral-storage: 0.5Gi
+            memory: 0.1G
+          limits:
+            cpu: 0.2
+            memory: 0.2G
+            ephemeral-storage: 2Gi
+        livenessProbe:
+          # A liveness probe is ran during the container's lifecycle as a health check
+          httpGet:
+            path: /
+            port: 80
+            httpHeaders:
+            - name: X-Custom-Header
+              value: k8s-liveness-probe
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 10
+        readinessProbe:
+          # Is different than a liveness probe, one difference is that a failure triggers
+          # traffic to not be routed to the pod, but it takes a failed liveness probe before
+          # the pod is killed/replaced. Also, traffic is only sent to a pod after a readiness 
+          # probe succeeds, unlike a liveness probe, so if a pod takes a while to initialize
+          # we don't want any traffic going to it until it's ready. 
+          # Readiness probes are quite useful for large java apps that take time to initialize.  
+          # Use a readiness probe in production.
+          httpGet:
+            path: /
+            port: 80
+            httpHeaders:
+            - name: X-Custom-Header
+              value: k8s-readiness-probe
+          initialDelaySeconds: 5
+          # Since this is a specific autoscale lab use case where the web server is slow
+          #  so as to make a lot of CPU use, we want a long timeout
+          timeoutSeconds: 10
+          failureThreshold: 3
+        lifecycle:
+          postStart:
+            exec:
+              # Can be used to do commands not in the container's entrypoint
+              # Can be useful for diagnostics
+              # Note there is no guarantee it's called before the container's entrypoint!
+              command: ["/bin/sh", "-c", "echo Hello from the postStart handler"]
+          preStop:
+            exec:
+              # Can be used to trigger a graceful shutdown, such as stopping services
+              # Is only used when a pod is terminated. When a pod completes it's not called.
+              # This hook is called immediately before a container is terminated. 
+              # No parameters are passed to the handler. This event handler is blocking, and must
+              #  complete before the call to delete the container is sent to the Docker daemon.
+              # The SIGTERM notification sent by Docker is also still sent.
+              # Note NGINX is an example where this is needed, since it does not shut down
+              #  gracefully with a sigterm. Instead it needs '/usr/sbin/nginx -s quit' ran
+              command: ["/bin/sh", "-c", "echo Hello from the preStop handler"]
+      volumes:
+      - name: apache-conf
+        configMap:
+          name: apache-configmap
+          items:
+          - key: httpd.conf    # the apache config file is stored in the configmap
+            path: httpd.conf
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
+# Created 2-21 on K8s 1.20
+
+# Docs (1.20): https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+# Reference (1.20): 
+
+# Note: Mounted ConfigMaps are updated automatically. When a ConfigMap currently consumed in a volume is updated, projected keys are eventually updated as well. The kubelet checks whether the mounted ConfigMap is fresh on every periodic sync. 
+
+  # However a container using a ConfigMap as a subPath volume will not receive ConfigMap updates.
+
+# The data stored in a ConfigMap cannot exceed 1 MiB as of K8s 1.20
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: apache-configmap
+  namespace: apache
+  annotations:
+data:
+  # Configuration values can be set as key-value properties
+  envvar_from_configmap: this_was_injected_by_k8s_configmap
+
+  # And entire config files can be placed here. This is the default httpd.conf file.
+
+  httpd.conf: "#\n# This is the main Apache HTTP server configuration file.  It contains
+    the\n# configuration directives that give the server its instructions.\n# See
+    <URL:http://httpd.apache.org/docs/2.4/> for detailed information.\n# In particular,
+    see \n# <URL:http://httpd.apache.org/docs/2.4/mod/directives.html>\n# for a discussion
+    of each configuration directive.\n#\n# Do NOT simply read the instructions in
+    here without understanding\n# what they do.  They're here only as hints or reminders.
+    \ If you are unsure\n# consult the online docs. You have been warned.  \n#\n#
+    Configuration and logfile names: If the filenames you specify for many\n# of the
+    server's control files begin with \"/\" (or \"drive:/\" for Win32), the\n# server
+    will use that explicit path.  If the filenames do *not* begin\n# with \"/\", the
+    value of ServerRoot is prepended -- so \"logs/access_log\"\n# with ServerRoot
+    set to \"/usr/local/apache2\" will be interpreted by the\n# server as \"/usr/local/apache2/logs/access_log\",
+    whereas \"/logs/access_log\" \n# will be interpreted as '/logs/access_log'.\n\n#\n#
+    ServerRoot: The top of the directory tree under which the server's\n# configuration,
+    error, and log files are kept.\n#\n# Do not add a slash at the end of the directory
+    path.  If you point\n# ServerRoot at a non-local disk, be sure to specify a local
+    disk on the\n# Mutex directive, if file-based mutexes are used.  If you wish to
+    share the\n# same ServerRoot for multiple httpd daemons, you will need to change
+    at\n# least PidFile.\n#\nServerRoot \"/usr/local/apache2\"\n\n#\n# Mutex: Allows
+    you to set the mutex mechanism and mutex file directory\n# for individual mutexes,
+    or change the global defaults\n#\n# Uncomment and change the directory if mutexes
+    are file-based and the default\n# mutex file directory is not on a local disk
+    or is not appropriate for some\n# other reason.\n#\n# Mutex default:logs\n\n#\n#
+    Listen: Allows you to bind Apache to specific IP addresses and/or\n# ports, instead
+    of the default. See also the <VirtualHost>\n# directive.\n#\n# Change this to
+    Listen on specific IP addresses as shown below to \n# prevent Apache from glomming
+    onto all bound IP addresses.\n#\n#Listen 12.34.56.78:80\nListen 80\n\n#\n# Dynamic
+    Shared Object (DSO) Support\n#\n# To be able to use the functionality of a module
+    which was built as a DSO you\n# have to place corresponding `LoadModule' lines
+    at this location so the\n# directives contained in it are actually available _before_
+    they are used.\n# Statically compiled modules (those listed by `httpd -l') do
+    not need\n# to be loaded here.\n#\n# Example:\n# LoadModule foo_module modules/mod_foo.so\n#\nLoadModule
+    mpm_event_module modules/mod_mpm_event.so\n#LoadModule mpm_prefork_module modules/mod_mpm_prefork.so\n#LoadModule
+    mpm_worker_module modules/mod_mpm_worker.so\nLoadModule authn_file_module modules/mod_authn_file.so\n#LoadModule
+    authn_dbm_module modules/mod_authn_dbm.so\n#LoadModule authn_anon_module modules/mod_authn_anon.so\n#LoadModule
+    authn_dbd_module modules/mod_authn_dbd.so\n#LoadModule authn_socache_module modules/mod_authn_socache.so\nLoadModule
+    authn_core_module modules/mod_authn_core.so\nLoadModule authz_host_module modules/mod_authz_host.so\nLoadModule
+    authz_groupfile_module modules/mod_authz_groupfile.so\nLoadModule authz_user_module
+    modules/mod_authz_user.so\n#LoadModule authz_dbm_module modules/mod_authz_dbm.so\n#LoadModule
+    authz_owner_module modules/mod_authz_owner.so\n#LoadModule authz_dbd_module modules/mod_authz_dbd.so\nLoadModule
+    authz_core_module modules/mod_authz_core.so\n#LoadModule authnz_ldap_module modules/mod_authnz_ldap.so\n#LoadModule
+    authnz_fcgi_module modules/mod_authnz_fcgi.so\nLoadModule access_compat_module
+    modules/mod_access_compat.so\nLoadModule auth_basic_module modules/mod_auth_basic.so\n#LoadModule
+    auth_form_module modules/mod_auth_form.so\n#LoadModule auth_digest_module modules/mod_auth_digest.so\n#LoadModule
+    allowmethods_module modules/mod_allowmethods.so\n#LoadModule isapi_module modules/mod_isapi.so\n#LoadModule
+    file_cache_module modules/mod_file_cache.so\n#LoadModule cache_module modules/mod_cache.so\n#LoadModule
+    cache_disk_module modules/mod_cache_disk.so\n#LoadModule cache_socache_module
+    modules/mod_cache_socache.so\n#LoadModule socache_shmcb_module modules/mod_socache_shmcb.so\n#LoadModule
+    socache_dbm_module modules/mod_socache_dbm.so\n#LoadModule socache_memcache_module
+    modules/mod_socache_memcache.so\n#LoadModule socache_redis_module modules/mod_socache_redis.so\n#LoadModule
+    watchdog_module modules/mod_watchdog.so\n#LoadModule macro_module modules/mod_macro.so\n#LoadModule
+    dbd_module modules/mod_dbd.so\n#LoadModule bucketeer_module modules/mod_bucketeer.so\n#LoadModule
+    dumpio_module modules/mod_dumpio.so\n#LoadModule echo_module modules/mod_echo.so\n#LoadModule
+    example_hooks_module modules/mod_example_hooks.so\n#LoadModule case_filter_module
+    modules/mod_case_filter.so\n#LoadModule case_filter_in_module modules/mod_case_filter_in.so\n#LoadModule
+    example_ipc_module modules/mod_example_ipc.so\n#LoadModule buffer_module modules/mod_buffer.so\n#LoadModule
+    data_module modules/mod_data.so\n#LoadModule ratelimit_module modules/mod_ratelimit.so\nLoadModule
+    reqtimeout_module modules/mod_reqtimeout.so\n#LoadModule ext_filter_module modules/mod_ext_filter.so\n#LoadModule
+    request_module modules/mod_request.so\n#LoadModule include_module modules/mod_include.so\nLoadModule
+    filter_module modules/mod_filter.so\n#LoadModule reflector_module modules/mod_reflector.so\n#LoadModule
+    substitute_module modules/mod_substitute.so\n#LoadModule sed_module modules/mod_sed.so\n#LoadModule
+    charset_lite_module modules/mod_charset_lite.so\n#LoadModule deflate_module modules/mod_deflate.so\n#LoadModule
+    xml2enc_module modules/mod_xml2enc.so\n#LoadModule proxy_html_module modules/mod_proxy_html.so\n#LoadModule
+    brotli_module modules/mod_brotli.so\nLoadModule mime_module modules/mod_mime.so\n#LoadModule
+    ldap_module modules/mod_ldap.so\nLoadModule log_config_module modules/mod_log_config.so\n#LoadModule
+    log_debug_module modules/mod_log_debug.so\n#LoadModule log_forensic_module modules/mod_log_forensic.so\n#LoadModule
+    logio_module modules/mod_logio.so\n#LoadModule lua_module modules/mod_lua.so\nLoadModule
+    env_module modules/mod_env.so\n#LoadModule mime_magic_module modules/mod_mime_magic.so\n#LoadModule
+    cern_meta_module modules/mod_cern_meta.so\n#LoadModule expires_module modules/mod_expires.so\nLoadModule
+    headers_module modules/mod_headers.so\n#LoadModule ident_module modules/mod_ident.so\n#LoadModule
+    usertrack_module modules/mod_usertrack.so\n#LoadModule unique_id_module modules/mod_unique_id.so\nLoadModule
+    setenvif_module modules/mod_setenvif.so\nLoadModule version_module modules/mod_version.so\n#LoadModule
+    remoteip_module modules/mod_remoteip.so\n#LoadModule proxy_module modules/mod_proxy.so\n#LoadModule
+    proxy_connect_module modules/mod_proxy_connect.so\n#LoadModule proxy_ftp_module
+    modules/mod_proxy_ftp.so\n#LoadModule proxy_http_module modules/mod_proxy_http.so\n#LoadModule
+    proxy_fcgi_module modules/mod_proxy_fcgi.so\n#LoadModule proxy_scgi_module modules/mod_proxy_scgi.so\n#LoadModule
+    proxy_uwsgi_module modules/mod_proxy_uwsgi.so\n#LoadModule proxy_fdpass_module
+    modules/mod_proxy_fdpass.so\n#LoadModule proxy_wstunnel_module modules/mod_proxy_wstunnel.so\n#LoadModule
+    proxy_ajp_module modules/mod_proxy_ajp.so\n#LoadModule proxy_balancer_module modules/mod_proxy_balancer.so\n#LoadModule
+    proxy_express_module modules/mod_proxy_express.so\n#LoadModule proxy_hcheck_module
+    modules/mod_proxy_hcheck.so\n#LoadModule session_module modules/mod_session.so\n#LoadModule
+    session_cookie_module modules/mod_session_cookie.so\n#LoadModule session_crypto_module
+    modules/mod_session_crypto.so\n#LoadModule session_dbd_module modules/mod_session_dbd.so\n#LoadModule
+    slotmem_shm_module modules/mod_slotmem_shm.so\n#LoadModule slotmem_plain_module
+    modules/mod_slotmem_plain.so\n#LoadModule ssl_module modules/mod_ssl.so\n#LoadModule
+    optional_hook_export_module modules/mod_optional_hook_export.so\n#LoadModule optional_hook_import_module
+    modules/mod_optional_hook_import.so\n#LoadModule optional_fn_import_module modules/mod_optional_fn_import.so\n#LoadModule
+    optional_fn_export_module modules/mod_optional_fn_export.so\n#LoadModule dialup_module
+    modules/mod_dialup.so\n#LoadModule http2_module modules/mod_http2.so\n#LoadModule
+    proxy_http2_module modules/mod_proxy_http2.so\n#LoadModule md_module modules/mod_md.so\n#LoadModule
+    lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so\n#LoadModule lbmethod_bytraffic_module
+    modules/mod_lbmethod_bytraffic.so\n#LoadModule lbmethod_bybusyness_module modules/mod_lbmethod_bybusyness.so\n#LoadModule
+    lbmethod_heartbeat_module modules/mod_lbmethod_heartbeat.so\nLoadModule unixd_module
+    modules/mod_unixd.so\n#LoadModule heartbeat_module modules/mod_heartbeat.so\n#LoadModule
+    heartmonitor_module modules/mod_heartmonitor.so\n#LoadModule dav_module modules/mod_dav.so\nLoadModule
+    status_module modules/mod_status.so\nLoadModule autoindex_module modules/mod_autoindex.so\n#LoadModule
+    asis_module modules/mod_asis.so\n#LoadModule info_module modules/mod_info.so\n#LoadModule
+    suexec_module modules/mod_suexec.so\n<IfModule !mpm_prefork_module>\n\t#LoadModule
+    cgid_module modules/mod_cgid.so\n</IfModule>\n<IfModule mpm_prefork_module>\n\t#LoadModule
+    cgi_module modules/mod_cgi.so\n</IfModule>\n#LoadModule dav_fs_module modules/mod_dav_fs.so\n#LoadModule
+    dav_lock_module modules/mod_dav_lock.so\n#LoadModule vhost_alias_module modules/mod_vhost_alias.so\n#LoadModule
+    negotiation_module modules/mod_negotiation.so\nLoadModule dir_module modules/mod_dir.so\n#LoadModule
+    imagemap_module modules/mod_imagemap.so\n#LoadModule actions_module modules/mod_actions.so\n#LoadModule
+    speling_module modules/mod_speling.so\n#LoadModule userdir_module modules/mod_userdir.so\nLoadModule
+    alias_module modules/mod_alias.so\n#LoadModule rewrite_module modules/mod_rewrite.so\n\n<IfModule
+    unixd_module>\n#\n# If you wish httpd to run as a different user or group, you
+    must run\n# httpd as root initially and it will switch.  \n#\n# User/Group: The
+    name (or #number) of the user/group to run httpd as.\n# It is usually good practice
+    to create a dedicated user and group for\n# running httpd, as with most system
+    services.\n#\nUser daemon\nGroup daemon\n\n</IfModule>\n\n# 'Main' server configuration\n#\n#
+    The directives in this section set up the values used by the 'main'\n# server,
+    which responds to any requests that aren't handled by a\n# <VirtualHost> definition.
+    \ These values also provide defaults for\n# any <VirtualHost> containers you may
+    define later in the file.\n#\n# All of these directives may appear inside <VirtualHost>
+    containers,\n# in which case these default settings will be overridden for the\n#
+    virtual host being defined.\n#\n\n#\n# ServerAdmin: Your address, where problems
+    with the server should be\n# e-mailed.  This address appears on some server-generated
+    pages, such\n# as error documents.  e.g. admin@your-domain.com\n#\nServerAdmin
+    you@example.com\n\n#\n# ServerName gives the name and port that the server uses
+    to identify itself.\n# This can often be determined automatically, but we recommend
+    you specify\n# it explicitly to prevent problems during startup.\n#\n# If your
+    host doesn't have a registered DNS name, enter its IP address here.\n#\n#ServerName
+    www.example.com:80\n\n#\n# Deny access to the entirety of your server's filesystem.
+    You must\n# explicitly permit access to web content directories in other \n# <Directory>
+    blocks below.\n#\n<Directory />\n    AllowOverride none\n    Require all denied\n</Directory>\n\n#\n#
+    Note that from this point forward you must specifically allow\n# particular features
+    to be enabled - so if something's not working as\n# you might expect, make sure
+    that you have specifically enabled it\n# below.\n#\n\n#\n# DocumentRoot: The directory
+    out of which you will serve your\n# documents. By default, all requests are taken
+    from this directory, but\n# symbolic links and aliases may be used to point to
+    other locations.\n#\nDocumentRoot \"/usr/local/apache2/htdocs\"\n<Directory \"/usr/local/apache2/htdocs\">\n
+    \   #\n    # Possible values for the Options directive are \"None\", \"All\",\n
+    \   # or any combination of:\n    #   Indexes Includes FollowSymLinks SymLinksifOwnerMatch
+    ExecCGI MultiViews\n    #\n    # Note that \"MultiViews\" must be named *explicitly*
+    --- \"Options All\"\n    # doesn't give it to you.\n    #\n    # The Options directive
+    is both complicated and important.  Please see\n    # http://httpd.apache.org/docs/2.4/mod/core.html#options\n
+    \   # for more information.\n    #\n    Options Indexes FollowSymLinks\n\n    #\n
+    \   # AllowOverride controls what directives may be placed in .htaccess files.\n
+    \   # It can be \"All\", \"None\", or any combination of the keywords:\n    #
+    \  AllowOverride FileInfo AuthConfig Limit\n    #\n    AllowOverride None\n\n
+    \   #\n    # Controls who can get stuff from this server.\n    #\n    Require
+    all granted\n</Directory>\n\n#\n# DirectoryIndex: sets the file that Apache will
+    serve if a directory\n# is requested.\n#\n<IfModule dir_module>\n    DirectoryIndex
+    index.html\n</IfModule>\n\n#\n# The following lines prevent .htaccess and .htpasswd
+    files from being \n# viewed by Web clients. \n#\n<Files \".ht*\">\n    Require
+    all denied\n</Files>\n\n#\n# ErrorLog: The location of the error log file.\n#
+    If you do not specify an ErrorLog directive within a <VirtualHost>\n# container,
+    error messages relating to that virtual host will be\n# logged here.  If you *do*
+    define an error logfile for a <VirtualHost>\n# container, that host's errors will
+    be logged there and not here.\n#\nErrorLog /proc/self/fd/2\n\n#\n# LogLevel: Control
+    the number of messages logged to the error_log.\n# Possible values include: debug,
+    info, notice, warn, error, crit,\n# alert, emerg.\n#\nLogLevel warn\n\n<IfModule
+    log_config_module>\n    #\n    # The following directives define some format nicknames
+    for use with\n    # a CustomLog directive (see below).\n    #\n    LogFormat \"%h
+    %l %u %t \\\"%r\\\" %>s %b \\\"%{Referer}i\\\" \\\"%{User-Agent}i\\\"\" combined\n
+    \   LogFormat \"%h %l %u %t \\\"%r\\\" %>s %b\" common\n\n    <IfModule logio_module>\n
+    \     # You need to enable mod_logio.c to use %I and %O\n      LogFormat \"%h
+    %l %u %t \\\"%r\\\" %>s %b \\\"%{Referer}i\\\" \\\"%{User-Agent}i\\\" %I %O\"
+    combinedio\n    </IfModule>\n\n    #\n    # The location and format of the access
+    logfile (Common Logfile Format).\n    # If you do not define any access logfiles
+    within a <VirtualHost>\n    # container, they will be logged here.  Contrariwise,
+    if you *do*\n    # define per-<VirtualHost> access logfiles, transactions will
+    be\n    # logged therein and *not* in this file.\n    #\n    CustomLog /proc/self/fd/1
+    common\n\n    #\n    # If you prefer a logfile with access, agent, and referer
+    information\n    # (Combined Logfile Format) you can use the following directive.\n
+    \   #\n    #CustomLog \"logs/access_log\" combined\n</IfModule>\n\n<IfModule alias_module>\n
+    \   #\n    # Redirect: Allows you to tell clients about documents that used to
+    \n    # exist in your server's namespace, but do not anymore. The client \n    #
+    will make a new request for the document at its new location.\n    # Example:\n
+    \   # Redirect permanent /foo http://www.example.com/bar\n\n    #\n    # Alias:
+    Maps web paths into filesystem paths and is used to\n    # access content that
+    does not live under the DocumentRoot.\n    # Example:\n    # Alias /webpath /full/filesystem/path\n
+    \   #\n    # If you include a trailing / on /webpath then the server will\n    #
+    require it to be present in the URL.  You will also likely\n    # need to provide
+    a <Directory> section to allow access to\n    # the filesystem path.\n\n    #\n
+    \   # ScriptAlias: This controls which directories contain server scripts. \n
+    \   # ScriptAliases are essentially the same as Aliases, except that\n    # documents
+    in the target directory are treated as applications and\n    # run by the server
+    when requested rather than as documents sent to the\n    # client.  The same rules
+    about trailing \"/\" apply to ScriptAlias\n    # directives as to Alias.\n    #\n
+    \   ScriptAlias /cgi-bin/ \"/usr/local/apache2/cgi-bin/\"\n\n</IfModule>\n\n<IfModule
+    cgid_module>\n    #\n    # ScriptSock: On threaded servers, designate the path
+    to the UNIX\n    # socket used to communicate with the CGI daemon of mod_cgid.\n
+    \   #\n    #Scriptsock cgisock\n</IfModule>\n\n#\n# \"/usr/local/apache2/cgi-bin\"
+    should be changed to whatever your ScriptAliased\n# CGI directory exists, if you
+    have that configured.\n#\n<Directory \"/usr/local/apache2/cgi-bin\">\n    AllowOverride
+    None\n    Options None\n    Require all granted\n</Directory>\n\n<IfModule headers_module>\n
+    \   #\n    # Avoid passing HTTP_PROXY environment to CGI's on this or any proxied\n
+    \   # backend servers which have lingering \"httpoxy\" defects.\n    # 'Proxy'
+    request header is undefined by the IETF, not listed by IANA\n    #\n    RequestHeader
+    unset Proxy early\n</IfModule>\n\n<IfModule mime_module>\n    #\n    # TypesConfig
+    points to the file containing the list of mappings from\n    # filename extension
+    to MIME-type.\n    #\n    TypesConfig conf/mime.types\n\n    #\n    # AddType
+    allows you to add to or override the MIME configuration\n    # file specified
+    in TypesConfig for specific file types.\n    #\n    #AddType application/x-gzip
+    .tgz\n    #\n    # AddEncoding allows you to have certain browsers uncompress\n
+    \   # information on the fly. Note: Not all browsers support this.\n    #\n    #AddEncoding
+    x-compress .Z\n    #AddEncoding x-gzip .gz .tgz\n    #\n    # If the AddEncoding
+    directives above are commented-out, then you\n    # probably should define those
+    extensions to indicate media types:\n    #\n    AddType application/x-compress
+    .Z\n    AddType application/x-gzip .gz .tgz\n\n    #\n    # AddHandler allows
+    you to map certain file extensions to \"handlers\":\n    # actions unrelated to
+    filetype. These can be either built into the server\n    # or added with the Action
+    directive (see below)\n    #\n    # To use CGI scripts outside of ScriptAliased
+    directories:\n    # (You will also need to add \"ExecCGI\" to the \"Options\"
+    directive.)\n    #\n    #AddHandler cgi-script .cgi\n\n    # For type maps (negotiated
+    resources):\n    #AddHandler type-map var\n\n    #\n    # Filters allow you to
+    process content before it is sent to the client.\n    #\n    # To parse .shtml
+    files for server-side includes (SSI):\n    # (You will also need to add \"Includes\"
+    to the \"Options\" directive.)\n    #\n    #AddType text/html .shtml\n    #AddOutputFilter
+    INCLUDES .shtml\n</IfModule>\n\n#\n# The mod_mime_magic module allows the server
+    to use various hints from the\n# contents of the file itself to determine its
+    type.  The MIMEMagicFile\n# directive tells the module where the hint definitions
+    are located.\n#\n#MIMEMagicFile conf/magic\n\n#\n# Customizable error responses
+    come in three flavors:\n# 1) plain text 2) local redirects 3) external redirects\n#\n#
+    Some examples:\n#ErrorDocument 500 \"The server made a boo boo.\"\n#ErrorDocument
+    404 /missing.html\n#ErrorDocument 404 \"/cgi-bin/missing_handler.pl\"\n#ErrorDocument
+    402 http://www.example.com/subscription_info.html\n#\n\n#\n# MaxRanges: Maximum
+    number of Ranges in a request before\n# returning the entire resource, or one
+    of the special\n# values 'default', 'none' or 'unlimited'.\n# Default setting
+    is to accept 200 Ranges.\n#MaxRanges unlimited\n\n#\n# EnableMMAP and EnableSendfile:
+    On systems that support it, \n# memory-mapping or the sendfile syscall may be
+    used to deliver\n# files.  This usually improves server performance, but must\n#
+    be turned off when serving from networked-mounted \n# filesystems or if support
+    for these functions is otherwise\n# broken on your system.\n# Defaults: EnableMMAP
+    On, EnableSendfile Off\n#\n#EnableMMAP off\n#EnableSendfile on\n\n# Supplemental
+    configuration\n#\n# The configuration files in the conf/extra/ directory can be
+    \n# included to add extra features or to modify the default configuration of \n#
+    the server, or you may simply copy their contents here and change as \n# necessary.\n\n#
+    Server-pool management (MPM specific)\n#Include conf/extra/httpd-mpm.conf\n\n#
+    Multi-language error messages\n#Include conf/extra/httpd-multilang-errordoc.conf\n\n#
+    Fancy directory listings\n#Include conf/extra/httpd-autoindex.conf\n\n# Language
+    settings\n#Include conf/extra/httpd-languages.conf\n\n# User home directories\n#Include
+    conf/extra/httpd-userdir.conf\n\n# Real-time info on requests and configuration\n#Include
+    conf/extra/httpd-info.conf\n\n# Virtual hosts\n#Include conf/extra/httpd-vhosts.conf\n\n#
+    Local access to the Apache HTTP Server Manual\n#Include conf/extra/httpd-manual.conf\n\n#
+    Distributed authoring and versioning (WebDAV)\n#Include conf/extra/httpd-dav.conf\n\n#
+    Various default settings\n#Include conf/extra/httpd-default.conf\n\n# Configure
+    mod_proxy_html to understand HTML4/XHTML1\n<IfModule proxy_html_module>\nInclude
+    conf/extra/proxy-html.conf\n</IfModule>\n\n# Secure (SSL/TLS) connections\n#Include
+    conf/extra/httpd-ssl.conf\n#\n# Note: The following must must be present to support\n#
+    \      starting without SSL on platforms with no /dev/random equivalent\n#       but
+    a statically compiled-in mod_ssl.\n#\n<IfModule ssl_module>\nSSLRandomSeed startup
+    builtin\nSSLRandomSeed connect builtin\n</IfModule>\n\n"
+
+binaryData:
+  # Empty
+
+# Once a ConfigMap is marked as immutable, it is not possible to revert this change nor to mutate the contents of the data or the binaryData field. You can only delete and recreate the ConfigMap. Because existing Pods maintain a mount point to the deleted ConfigMap, it is recommended to recreate these pods.
+# Docs: https://kubernetes.io/docs/concepts/configuration/configmap/#configmap-immutable
+immutable: false
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+#################################################
+---
