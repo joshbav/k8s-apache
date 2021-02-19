@@ -10,19 +10,17 @@
 #add delay to preStop, per: https://blog.gruntwork.io/delaying-shutdown-to-wait-for-pod-deletion-propagation-445f779a8304
 
 
-# QoS
 # configmap more data like file (already done, but not tested), ref: https://github.com/kubernetes/kubernetes/issues/22368
 # mount secret as file, document how I made it
-# show example use, but mention that they aren't as useful as people assume, 
-# add downward api mount
+  # show example use, but mention that they aren't as useful as people assume, 
 # PV and PVC based on hostPath and emptyDir (uses /tmp, never use in prod)
 # dnsConfig:  per https://pracucci.com/kubernetes-dns-resolution-ndots-options-and-why-it-may-affect-application-performances.html
 # https://kubernetes.io/docs/concepts/workloads/pods/podpreset/
 # secret from file, mounted as file
 # activeDeadlineSeconds
 # httpHeaders to liveness and ready probe, also a command example
-# bandwidth limit in 1.12
 # service types such as ipvs but commented out, with links
+
 # yaml can be very unforgiving, here's a good online validator to use:  
 #   http://yaml-online-parser.appspot.com/
 #   but it does not like multiple yaml docs, so cut each doc at the --- line before submitting
@@ -40,6 +38,8 @@ metadata:
     prod: "false" # This yaml will be invalid without the quotes, which is odd considering the prior line worked.
     # Note, these are common labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
   annotations:
+    kubernetes.io/ingress-bandwidth: 1M  # An alpha feature (as of K8s ver?) that is only supported by some CNIs.
+    kubernetes.io/egress-bandwidth: 1M   # Reference: https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#support-traffic-shaping
     build-time: "Nov-14-2018, 9:30am UTC"
     jenkins-job-id: "jenkins-1234"
     deploy-time: "Nov-14-2018, 10:04am UTC"
@@ -102,6 +102,12 @@ spec:
         image: httpd:2.4.46
         command: ['sh', '-c', 'echo This is an init container', 'sleep 2', 'done']
         resources:
+           # If a Container specifies its own cpu/memory limit, but does not specify a memory request, the request is set to the limit. Same when vice versa.
+           # See status.qosClass when the pod is running to see if it's guaranteed, burstable, or besteffort.
+           # For a pod to be assigned a QoS class of guaranteed every container, including init, must have a memory and cpu limit and request that are the same.
+           # For a pod to be assigned burstable, it does not meet the criteria for guaranteed, and at least one container has a memory or CPU request.
+           # For a pod to be assigned besteffort, all containers in the pod must have no memory and CPU limits or requests.
+           # Reference: https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/
           requests:
             cpu: 0.1
             ephemeral-storage: 0.5Gi
@@ -125,6 +131,8 @@ spec:
           subPath: "httpd.conf" # without this the whole conf directory is replaced, but we just want to replace a file.
             # http://blog.andyserver.com/2019/02/using-subpath-property-of-openshift-volume-mounts/
           readOnly: false
+        - name: podinfo  # The downward API # https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/
+          mountPath: /podinfo
         env:
         - name: k8s_deployment_variable
           value: "this-envvar-was-injected-by-the-k8s-deployment"
@@ -204,3 +212,20 @@ spec:
           items:
           - key: httpd.conf    # the apache config file is stored in the configmap
             path: httpd.conf
+      - name: podinfo
+        downwardAPI: # The K8s downward API # https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
+            - path: "cpu_request"
+              resourceFieldRef: # Note the different format for container fields vs pod fields above
+                containerName: apache
+                resource: requests.cpu
+                divisor: 1m
+
+
+
