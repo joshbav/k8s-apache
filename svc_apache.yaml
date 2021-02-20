@@ -2,6 +2,7 @@
 apiVersion: v1
 kind: Service
 # A service is an abstraction which defines a logical set of Pods and a policy by which to access them.
+#  which are K8s endpoint objects (kubectl get endpoints)
 # For Kubernetes-native applications a simple Endpoints API is updated whenever the set of Pods
 #   in a Service changes. For non-native applications, Kubernetes offers a virtual-IP-based bridge
 #   to Services which redirects to the backend Pods. Is a layer 4 construct.·
@@ -13,10 +14,31 @@ metadata:
   namespace: apache
   annotations:
 spec:
-  type: ClusterIP # Note the other types such as IPVS, headless, external, etc
+  type: ClusterIP # Note the other types such as IPVS, NodePort, LoadBalancer, ExternalName, ClusterIP (default), 
+                  #  to make a headless service specify clusterIP: none
+  #clusterIP: # You can hard code the IP, such as if exsiting legay DNS must be used?
+  #clusterIPs
+  #externalIPs
+  #sessionAffinity: # ClientIP, none. Default is none
+  #sessionAffinityConfig.clientIP.timeoutSeconds # Default is 10800 = ~3 hours
+  #loadBalancerIP
+  #loadBalancerSourceRanges
+  #allocateLoadBalancerNodePorts
+  #externalName
+  #externalTrafficPolicy
+  #healthCheckNodePort
+  #publishNotReadyAddresses
+  #ipFamilies: # For IPv6
+  #ipFamilyPolicy
+  #topologyKeys: # A cool feature to keep traffic within an AZ, etc. Can make the same node preferred as destination, etc.
+
   ports:
   - name: http
     targetPort: 80
     port: 80
+    protocol: TCP # TCP, UDP, SCTP. Default TCP.
+    # nodePort
+    # appProtocol # Beta in 1.20
   selector:
     app: apache
+

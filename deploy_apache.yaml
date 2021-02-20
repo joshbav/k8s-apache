@@ -4,12 +4,26 @@
 
 # TODO:
 
+# post stop handler example
 # this traefik is old, now uses CRDs, switch to k8s nginx ingres? (not f5's) https://kubernetes.github.io/ingress-nginx/deploy/
 # directions for kind: https://kind.sigs.k8s.io/docs/user/ingress/#ingress-nginx
 
 #add delay to preStop, per: https://blog.gruntwork.io/delaying-shutdown-to-wait-for-pod-deletion-propagation-445f779a8304
 
+#under spec add:
+#securityContext:
+#          capabilities:
+#            add:
+#              - IPC_LOCK
 
+# do local volume https://github.com/kubernetes/examples/blob/master/mysql-wordpress-pd/local-volumes.yaml
+
+# do service after ns in 1.yaml. https://kubernetes.io/docs/concepts/configuration/overview/
+
+# load balancer, all commented out
+# csr?
+# service topologyKeys, use prefer node local example
+# different types of services
 # configmap more data like file (already done, but not tested), ref: https://github.com/kubernetes/kubernetes/issues/22368
 # mount secret as file, document how I made it
   # show example use, but mention that they aren't as useful as people assume, 
@@ -120,7 +134,7 @@ spec:
       - name: apache
         # Consider pulling an image by digest instead of tag, it's immutable
         image: httpd:2.4.46  # The version of apache I copied the conf file into the configmap
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always # Always is still fast because of caching, only the manifest is pulled  # IfNotPresent, Never
 #        command: ['/bin/sleep'] # useful for troubleshooting to override entrypoint then exec in, but first disable liveness probe.
 #        args: ["3600"] # appends to command. See the initContianer section for a smoother way.
         ports:

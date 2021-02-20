@@ -1,18 +1,29 @@
 # Create 2-21 on K8s 1.20
+
+# Decent into:  https://blog.gruntwork.io/avoiding-outages-in-your-kubernetes-cluster-using-poddisruptionbudgets-ef6a4baa5085
+
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 # Cluster managers, hosting providers, etc should use tools which respect Pod Disruption Budgets·
 #   by calling the Eviction API instead of directly deleting pods, for voluntary actions.
-# Involuntary actions also count against the budget.·
+# Involuntary actions also count against the budget, but the budget can only protect against 
+#  voluntary evictions, not all causes of unavailability such as the failure of an AZ.
 # The kubectl drain command utilizes pod disruption budgets
-# Pods which are deleted or unavailable due to a rolling upgrade to an application do count·
+# Pods which are deleted or unavailable due to a rolling upgrade do count·
 #   against the disruption budget, but controllers (like deployment and stateful-set) are not·
 #   limited by PDBs when doing rolling upgrade.
+# If you set maxUnavailable to 0% or 0, or you set minAvailable to 100% or the number of replicas,
+#  you are requiring zero voluntary evictions. When you set zero voluntary evictions for a workload
+#  object such as ReplicaSet, then you cannot successfully drain a Node running one of those Pods.
+#  If you try to drain a Node where an unevictable Pod is running, the drain never completes.
+#  This is permitted as per the semantics of PodDisruptionBudget.
+
 metadata:
   name: apache-pdb
   namespace: apache
   annotations:
 spec:
+  #minAvailable: 1 # These can also be a %
   maxUnavailable: 1
   selector:
     matchLabels:
