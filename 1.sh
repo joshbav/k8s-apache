@@ -44,14 +44,17 @@ done
 files=(*.yaml)
 
 for ((i=0; i<${#files[@]}; i++)); do
-    # Skip namespaces
+    # Skip namespaces, alraedy did them
     [[ ${files[$i]} = ns_* ]] && continue
 
-    # Skip services
+    # Skip services, already did them
     [[ ${files[$i]} = svc_* ]] && continue
 
     # Skip 1.yaml that was just created
     [[ ${files[$i]} = 1.yaml ]] && continue
+
+    # Skip pod_ubuntu.yaml since it's not apache and doesn't belong here
+    [[ ${files[$i]} = pod_ubuntu.yaml ]] && continue
 
     echo "${files[$i]}"
     cat ${files[$i]} >>1.yaml

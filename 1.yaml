@@ -903,34 +903,6 @@ spec:
 ################# NEW YAML OBJECT ###############
 #################################################
 ---
-apiVersion: v1
-kind: Pod
-metadata:
-  name: ubuntu
-  labels:
-    name: ubuntu
-spec:
-  containers:
-    - name: ubuntu
-      image: ubuntu
-      command:
-        - sleep
-        - "3600"
-      resources:
-         requests:
-           cpu: 0.1
-           ephemeral-storage: 0.5Gi
-           memory: 0.1G
-         limits:
-           cpu: 0.2
-           memory: 0.2G
-           ephemeral-storage: 2Gi
-
-
-#################################################
-################# NEW YAML OBJECT ###############
-#################################################
----
 # Created 2-21 on K8s 1.20
 
 # Docs (1.20): https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/
