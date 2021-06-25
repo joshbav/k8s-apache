@@ -393,6 +393,10 @@ spec:
 
 # TODO:
 
+# stateful set, started
+# daemonset - not done
+# 
+
 # post stop handler example
 # this traefik is old, now uses CRDs, switch to k8s nginx ingres? (not f5's) https://kubernetes.github.io/ingress-nginx/deploy/
 # directions for kind: https://kind.sigs.k8s.io/docs/user/ingress/#ingress-nginx
@@ -1007,6 +1011,52 @@ metadata:
 data:
   # Note secrets must always be in base64
   password-from-secret: bXktZXhhbXBsZS1wYXNzd29yZAo=
+
+
+#################################################
+################# NEW YAML OBJECT ###############
+---
+# Created on K8s 1.20 on 2-21.
+# Isn't standard (not apache)
+# Is incomplete
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: apache-statefulset
+  namespace: apache
+  labels:
+    app: apache
+    foo: bar
+spec:
+  serviceName: apache
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apache
+  template:
+    metadata:
+      labels:
+        app: apache
+    spec:
+      containers:
+      - name: apache_stateful
+        image: httpd:2.4.46
+        ports:
+        - containerPort: 80
+          name: web
+        #volumeMounts:
+        #- name: www
+        #  mountPath: /usr/share/nginx/html
+ # volumeClaimTemplates:
+ # - metadata:
+ #     name: www
+ #   spec:
+ #     accessModes: [ "ReadWriteOnce" ]
+ #     resources:
+ #       requests:
+ #         storage: 1Gi
+
 
 
 #################################################
