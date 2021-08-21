@@ -1,4 +1,4 @@
-# Created 2-21 on K8s 1.20
+# Update 8-21 on K8s 1.21
 
 # A cronjob that runs once a day
 
@@ -7,7 +7,8 @@
 # Note, because of K8s cronjob weirdness jobs should be idempotent.
 # K8s 1.20 has a new alpha cronjob controller
 
-apiVersion: batch/v1beta1
+# below was batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: apache-cronjob

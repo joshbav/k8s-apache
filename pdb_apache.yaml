@@ -1,8 +1,9 @@
-# Create 2-21 on K8s 1.20
+# Updated 8-21 on K8s 1.20
 
 # Decent into:  https://blog.gruntwork.io/avoiding-outages-in-your-kubernetes-cluster-using-poddisruptionbudgets-ef6a4baa5085
 
-apiVersion: policy/v1beta1
+# below was policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 # Cluster managers, hosting providers, etc should use tools which respect Pod Disruption Budgets·
 #   by calling the Eviction API instead of directly deleting pods, for voluntary actions.

@@ -337,7 +337,7 @@ immutable: false
 #################################################
 ################# NEW YAML OBJECT ###############
 ---
-# Created 2-21 on K8s 1.20
+# Update 8-21 on K8s 1.21
 
 # A cronjob that runs once a day
 
@@ -346,7 +346,8 @@ immutable: false
 # Note, because of K8s cronjob weirdness jobs should be idempotent.
 # K8s 1.20 has a new alpha cronjob controller
 
-apiVersion: batch/v1beta1
+# below was batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: apache-cronjob
@@ -860,11 +861,12 @@ spec:
 #################################################
 ################# NEW YAML OBJECT ###############
 ---
-# Create 2-21 on K8s 1.20
+# Updated 8-21 on K8s 1.20
 
 # Decent into:  https://blog.gruntwork.io/avoiding-outages-in-your-kubernetes-cluster-using-poddisruptionbudgets-ef6a4baa5085
 
-apiVersion: policy/v1beta1
+# below was policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 # Cluster managers, hosting providers, etc should use tools which respect Pod Disruption Budgets·
 #   by calling the Eviction API instead of directly deleting pods, for voluntary actions.
