@@ -4,6 +4,10 @@ kind: Namespace
 metadata:
   name: apache
   annotations:
+    owner: josh # What teams to contact for the namespace should be annotated.
+    owner-email: josh@josh.com
+    creation-date: 2-1-21
+    purpose: production-app
 
 
 #################################################
@@ -394,10 +398,35 @@ spec:
 
 # TODO:
 
+# securityContext in apache pod
+
+# automountServiceAccountToken
+# enableServiceLinks
+# hostAliases
+# hostIPC
+# hostNetwork
+# hostPID
+# hostname
+# imagePullSecrets:
+# overhead
+# preemptionPolicy
+# priority
+# readinessGates
+# restartPolicy
+# runtimeClassName
+# schedulerName
+# serviceAccountName
+# setHostnameAsFQDN
+# shareProcessNamespace  
+# subdomain
+# 
+
+
+#service account, including:https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#service-account-token-volume-projection
 # stateful set, started
 # daemonset - not done
 # 
-
+#  
 # post stop handler example
 # this traefik is old, now uses CRDs, switch to k8s nginx ingres? (not f5's) https://kubernetes.github.io/ingress-nginx/deploy/
 # directions for kind: https://kind.sigs.k8s.io/docs/user/ingress/#ingress-nginx
@@ -411,8 +440,6 @@ spec:
 #              - IPC_LOCK
 
 # do local volume https://github.com/kubernetes/examples/blob/master/mysql-wordpress-pd/local-volumes.yaml
-
-# do service after ns in 1.yaml. https://kubernetes.io/docs/concepts/configuration/overview/
 
 # load balancer, all commented out
 # csr?
@@ -438,7 +465,7 @@ spec:
 
 apiVersion: apps/v1
 kind: Deployment
-metadata:
+metadata: # Note these are for the deployment, not the pods it creates
   name: apache-deployment
   namespace: apache
   labels:
@@ -451,7 +478,7 @@ metadata:
     build-time: "Nov-14-2018, 9:30am UTC"
     jenkins-job-id: "jenkins-1234"
     deploy-time: "Nov-14-2018, 10:04am UTC"
-spec:
+spec: # The deployment spec, which contains a template, which contains a pod spec
   # In production you would likely not specify a replica, because a rolling update would scale up/down to match it
   # replicas: 1
   # To avoid one ReplicaSet overwriting the past copies of others
@@ -460,36 +487,45 @@ spec:
   revisionHistoryLimit: 20
   paused: false # Deployments can be rolled out in a paused state
   progressDeadlineSeconds: # Optional, the number of seconds you want to wait for your Deployment to progress before the system reports back that the Deployment has failed progressing
-  # Allow this Deployment/ReplicaSet/Pod(s) to be found via an app=apache
-  selector:
+  selector: # Allow this Deployment/ReplicaSet/Pod(s) to be found via an app=apache
     matchLabels:
       app: apache
   strategy:
-    # The type of update done on this deployment will be a rolling update
-    type: RollingUpdate
+    type: RollingUpdate # The type of update done on this deployment will be a rolling update
     rollingUpdate:
       # 3 more pods than the current replica value is allowed during an update
-      maxSurge: 3
-      # During an update only 1 pod can be unavailable at a time
-      maxUnavailable: 1
-  template: # pod template
+      maxSurge: 3 # Can also be a percentage, which gets rounded up
+      # Because maxSurge is set, no existing pod will be terminated until a new pod is available 
+      maxUnavailable: 0
+  template: # Pod template
     metadata:
       labels:
         app: apache
+        pod-label: example
         # Note, these are common labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
       annotations:
-    spec:
+        pod-annotation: foo
+
+    spec: # The pod spec
       dnsPolicy: Default # TODO add link
       # How long after sigterm is sent will a sigkill be sent, 30 is the K8s default. Note kubectl can override this with delete deploy  --force --grace-period=X. This grace period timer begins before the preStop hook is called, not when sigterm is sent
-      terminationGracePeriodSeconds: 5
+      terminationGracePeriodSeconds: 15
       priorityClassName: low-priority-nonpreempting # Pod priority class
       progressDeadlineSeconds: # Optional, the number of seconds you want to wait for your Deployment to progress before the system reports back that the Deployment has failed progressing
       minReadySeconds: # Default 0, not sure why to use this when probes are in use
 
-      # This will tell the scheduler to prefer (not require) one pod per node unti that's no longer possible, only then a node with an existing pod will receive a second instance. Note antiaffinity doesn't scale very well and can only be used in clusters up to a few hundred nodes in Kubernetes 1.11 
+      securityContext: # Applies to all containers in the pod, at this level. See next security context section.
+        #runAsUser: 1000  # For all containers in the pod, all processes run with user ID 1000
+        #runAsGroup: 3000 # Use primary group ID 3000 for all processes within all containers of the pod
+        #fsGroup: 2000    # All processes of the container are also part of the supplementary group ID 2000
+        #fsGroupChangePolicy: "OnRootMismatch" # or: Always  beta in v1.20
+    
+      # This will tell the scheduler to prefer (not require) one pod per node until that's no longer possible, only then a node with an existing pod will receive a second instance. 
+      # Note antiaffinity doesn't scale very well and can only be used in clusters up to a few hundred nodes in v1.11 (TODO check newer versions). 
+      # Since this is podAntiAffinity it will avoid scheduling to nodes that already have app=apache
       affinity:
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
+          preferredDuringSchedulingIgnoredDuringExecution: # Alternative: requiredDuringSchedulingIgnoredDuringExecution
             - weight: 1
               podAffinityTerm:
                 labelSelector:
@@ -498,19 +534,44 @@ spec:
                     operator: In
                     values:
                     - apache
-                topologyKey: kubernetes.io/hostname
-      # If a node is tainted with example-taint:true then don't deploy to it 
+                topologyKey: kubernetes.io/hostname # Note this is not fully a standard label as of v1.15
+        #podAffinity: # Opposite of podAntiAffinity, useful for scheduling pods to the same node as other pods.
+        #Now for node affinity, per https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+        #nodeAffinity # Make scheduling decisions based on node labels instead of pod labels.
+        #nodeAntiAffity:
+        #NOTE: v1.22 has a beta feature of a namespace selector
+     
+      #nodeSelector: The simplest form of node selection constraint, scales well, but I tend to use affinity instead. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector 
+      #nodeName: A crude node selection constraint, not very useful. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename
+     
       tolerations:
       - key: "no-apache"
         operator: "Equal"
         value: "true"
         effect: "NoSchedule"
+     
+      # Spreads pod replicas according to labels. Per: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
+      topologySpreadConstraints:
+      - maxSkew: 1 # To what degree may pods be unevenly distributued. Functionality depends upon setting of whenUnsatisfiable
+        topologyKey: topology.kubernetes.io/zone # Node labels to key from. Standard as of v1.17
+        whenUnsatisfiable: ScheduleAnyway # or: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: apache # What pod labels to ensure are spread among nodes by the topologyKey
+      - maxSkew: 1 # By having 2 spread constraints we can spread the pods across both AZ's and host names
+                   # Note this is redundant since we're already doing podAntiAffinity above 
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway # or: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: apache
+
       initContainers: # https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
       - name: apache-init
         image: httpd:2.4.46
         command: ['sh', '-c', 'echo This is an init container', 'sleep 2', 'done']
         resources:
-           # If a Container specifies its own cpu/memory limit, but does not specify a memory request, the request is set to the limit. Same when vice versa.
+           # If a Container specifies its own cpu/memory limit, but does not specify a memory request, the request is set to the limit. TODO: WRONG: Same when vice versa.
            # See status.qosClass when the pod is running to see if it's guaranteed, burstable, or besteffort.
            # For a pod to be assigned a QoS class of guaranteed every container, including init, must have a memory and cpu limit and request that are the same.
            # For a pod to be assigned burstable, it does not meet the criteria for guaranteed, and at least one container has a memory or CPU request.
@@ -521,16 +582,18 @@ spec:
             ephemeral-storage: 0.5Gi
             memory: 0.1G
           limits:
-            cpu: 0.2
+            cpu: 0.5
             memory: 0.2G
             ephemeral-storage: 2Gi
+     
       containers:
       - name: apache
         # Consider pulling an image by digest instead of tag, it's immutable
         image: httpd:2.4.46  # The version of apache I copied the conf file into the configmap
         imagePullPolicy: Always # Always is still fast because of caching, only the manifest is pulled  # IfNotPresent, Never
+                                # Always should always be used, to avoid an older image being used.
 #        command: ['/bin/sleep'] # useful for troubleshooting to override entrypoint then exec in, but first disable liveness probe.
-#        args: ["3600"] # appends to command. See the initContianer section for a smoother way.
+#        args: ["3600"] # appends to command. See the initContainer section for a smoother way.
         ports:
         - containerPort: 80
         volumeMounts:
@@ -613,6 +676,9 @@ spec:
               # Note NGINX is an example where this is needed, since it does not shut down
               #  gracefully with a sigterm. Instead it needs '/usr/sbin/nginx -s quit' ran
               command: ["/bin/sh", "-c", "echo Hello from the preStop handler"]
+        #TODO securityContext:
+        # End of apache container
+
       volumes:
       - name: apache-conf
         configMap:
@@ -634,7 +700,7 @@ spec:
                 containerName: apache
                 resource: requests.cpu
                 divisor: 1m
-
+    # End of pod spec
 
 
 
@@ -1004,6 +1070,7 @@ spec:
 ---
 # Created 2-21 on K8s 1.20
 
+#TODO: as kubectl create secret docker-registry creates a Secret that only works with a single private registry.
 apiVersion: v1
 kind: Secret
 metadata:

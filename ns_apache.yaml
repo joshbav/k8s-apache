@@ -4,3 +4,7 @@ kind: Namespace
 metadata:
   name: apache
   annotations:
+    owner: josh # What teams to contact for the namespace should be annotated.
+    owner-email: josh@josh.com
+    creation-date: 2-1-21
+    purpose: production-app
