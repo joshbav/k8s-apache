@@ -55,14 +55,10 @@ for ((i=0; i<${#files[@]}; i++)); do
     # Skip 1.yaml that was just created
     [[ ${files[$i]} = 1.yaml ]] && continue
 
-    # Skip pod_ubuntu.yaml since it's not apache and doesn't belong here
-    [[ ${files[$i]} = pod_ubuntu.yaml ]] && continue
-
     echo "${files[$i]}"
     cat ${files[$i]} >>1.yaml
     echo >>1.yaml
     echo >>1.yaml
-    echo "#################################################" >>1.yaml
     echo "################# NEW YAML OBJECT ###############" >>1.yaml
     echo "---">>1.yaml
 done

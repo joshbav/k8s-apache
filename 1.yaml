@@ -338,7 +338,6 @@ binaryData:
 immutable: false
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Update 8-21 on K8s 1.21
@@ -389,7 +388,6 @@ spec:
 
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # My main to do list, and the deployment yaml
@@ -705,7 +703,6 @@ spec: # The deployment spec, which contains a template, which contains a pod spe
 
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created 2-21 on K8s 1.20
@@ -753,7 +750,6 @@ spec:
         value: 10k
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created 2-21 on K8s 1.20
@@ -782,7 +778,6 @@ spec:
 
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created 2-21 on K8s 1.20
@@ -802,7 +797,6 @@ spec:
     name: external-apache-lb
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created 2-21 on K8s 1.20
@@ -839,7 +833,6 @@ spec:
 
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created 2-21 on K8s 1.20
@@ -862,7 +855,6 @@ spec:
 
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Creted 2-21 on K8s 1.20
@@ -924,7 +916,6 @@ spec:
   - Egress
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Updated 8-21 on K8s 1.20
@@ -960,7 +951,6 @@ spec:
       app: apache
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created 2-21 on K8s 1.20
@@ -978,7 +968,6 @@ globalDefault: false
 description: "This priority class will not cause other pods to be preempted."
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created 2-21 on K8s 1.20
@@ -1018,7 +1007,6 @@ spec:
 
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created 2-21 on K8s 1.20
@@ -1065,7 +1053,6 @@ spec:
     # NOTE Object count quotas for things like configmaps, etc, are also supported but no example is here. 
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created 2-21 on K8s 1.20
@@ -1082,7 +1069,6 @@ data:
   password-from-secret: bXktZXhhbXBsZS1wYXNzd29yZAo=
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 # Created on K8s 1.20 on 2-21.
@@ -1128,7 +1114,6 @@ spec:
 
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1222,6 +1207,5 @@ spec:
         effect: "NoSchedule"
 
 
-#################################################
 ################# NEW YAML OBJECT ###############
 ---
