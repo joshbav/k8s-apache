@@ -394,10 +394,10 @@ spec:
 
 #### THIS IS A MESSY WORK IN PROGRESS
 
-# TODO:
+# TODO IN POD SPEC:
 
-# securityContext in apache pod
-
+# securityContext in apache pod, 
+#   also https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-seccomp-profile-for-a-container
 # automountServiceAccountToken
 # enableServiceLinks
 # hostAliases
@@ -417,6 +417,28 @@ spec:
 # setHostnameAsFQDN
 # shareProcessNamespace  
 # subdomain
+# 
+
+# OBJECTS TO ADD
+# runtimeclass
+# clusterrolebinding
+# cluster role
+# role binding
+# role
+# volumeattachment
+# flowschema?
+# prioritylevelconfigurations 
+# leases?
+# certificatesigningrequests 
+# tokenreviews                                   
+#localsubjectaccessreviews
+#SelfSubjectAccessReview
+#SelfSubjectRulesReview
+#subjectaccessreviews   
+# controllerevisions
+# apiservices
+# service accounts
+# endpoint
 # 
 
 
